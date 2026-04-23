@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>橋本くんの業務タスク管理ツール</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f6f5f1;
+  --panel:#ffffff;
+  --panel-soft:#fbfaf7;
+  --text:#202124;
+  --text-sub:#666a63;
+  --border:#dedbd2;
+  --border-strong:#cfcbbf;
+  --shadow:0 8px 22px rgba(0,0,0,.05);
+  --ok:#178b68;
+  --ok-bg:#e4f5ef;
+  --ok-text:#0d5a46;
+  --warn:#b87410;
+  --warn-bg:#fff0d9;
+  --warn-text:#8d5704;
+  --danger:#c23a3a;
+  --danger-bg:#fdeaea;
+  --danger-text:#a12d2d;
+  --info:#2468b3;
+  --info-bg:#e9f1fb;
+  --info-text:#1c5ea6;
+  --purple-bg:#efedff;
+  --purple-text:#44389a;
+  --nav-h:64px;
+}
+body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.65;min-height:100vh}
+
+/* ── レイアウト ── */
+.app{max-width:980px;margin:0 auto;padding:24px 14px 40px}
+.header{margin-bottom:18px}
+.header h1{font-size:28px;font-weight:800;letter-spacing:.02em;margin-bottom:6px}
+.header p{font-size:13px;color:var(--text-sub)}
+
+/* ── アラート・トースト ── */
+.top-alert,.toast,.inline-msg{display:none;border-radius:16px;padding:14px 16px;border:1px solid transparent}
+.top-alert.show,.toast.show,.inline-msg.show{display:block}
+.top-alert{margin-bottom:16px;box-shadow:var(--shadow)}
+.top-alert strong,.toast strong,.inline-msg strong{display:block;font-size:15px;margin-bottom:2px}
+.top-alert p,.toast p,.inline-msg p{font-size:13px;color:inherit}
+.top-alert.danger,.toast.danger,.inline-msg.danger{background:var(--danger-bg);color:var(--danger-text);border-color:#f2c9c9}
+.top-alert.warn,.toast.warn,.inline-msg.warn{background:var(--warn-bg);color:var(--warn-text);border-color:#ecd1a7}
+.top-alert.ok,.toast.ok,.inline-msg.ok{background:var(--ok-bg);color:var(--ok-text);border-color:#c7e8dc}
+.toast{position:fixed;top:18px;right:18px;z-index:9999;min-width:300px;max-width:420px;box-shadow:0 12px 30px rgba(0,0,0,.12)}
+
+/* ── タブ（デスクトップ） ── */
+.tabs{display:flex;gap:6px;background:var(--panel);padding:6px;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);margin-bottom:20px;position:sticky;top:12px;z-index:10}
+.tab{flex:1;border:none;background:none;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:800;color:var(--text-sub);cursor:pointer;font-family:inherit}
+.tab.active{background:var(--panel-soft);color:var(--text);box-shadow:inset 0 0 0 1px var(--border)}
+
+/* ── ボトムナビ（スマホ専用・デフォルト非表示） ── */
+.bottom-nav{display:none}
+
+/* ── カード・共通 ── */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+.sec-title{font-size:16px;font-weight:800}
+.sec-sub{font-size:12px;color:var(--text-sub)}
+
+/* ── 統計 ── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+.stat-label{font-size:12px;color:var(--text-sub);margin-bottom:4px}
+.stat-num{font-size:30px;font-weight:800;line-height:1;margin-bottom:5px;font-variant-numeric:tabular-nums}
+.stat-sub{font-size:11px;color:#8a8d87}
+
+/* ── グリッド ── */
+.note-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.note{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+.note strong{display:block;font-size:14px;margin-bottom:4px}
+.note p{font-size:13px;color:var(--text-sub)}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px}
+
+/* ── バッジ ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap}
+.b-seminar{background:var(--purple-bg);color:var(--purple-text)}
+.b-meeting{background:var(--info-bg);color:var(--info-text)}
+.b-application{background:var(--warn-bg);color:var(--warn-text)}
+.b-ok{background:var(--ok-bg);color:var(--ok-text)}
+.b-warn{background:var(--warn-bg);color:var(--warn-text)}
+.b-danger{background:var(--danger-bg);color:var(--danger-text)}
+.b-gray{background:#efeee8;color:#66655f}
+
+/* ── リスト・アイテム ── */
+.list{display:flex;flex-direction:column;gap:10px}
+.item{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel-soft)}
+.item-main{flex:1;min-width:0}
+.item-title{font-size:14px;font-weight:800;margin-bottom:2px}
+.meta{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-sub)}
+.empty{text-align:center;color:var(--text-sub);padding:24px 8px;border:1px dashed var(--border-strong);border-radius:14px;background:var(--panel-soft)}
+.progress{height:7px;border-radius:999px;background:#ece8de;overflow:hidden;margin-top:8px}
+.progress span{display:block;height:100%;background:var(--ok);border-radius:999px}
+
+/* ── ステータスグリッド ── */
+.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.status-box{border-radius:16px;padding:14px;border:1px solid var(--border);background:var(--panel);box-shadow:var(--shadow)}
+.status-box h3{font-size:14px;font-weight:800;margin-bottom:6px}
+.status-box p{font-size:12px;color:var(--text-sub);margin-bottom:10px}
+.status-box.overdue{background:var(--danger-bg);border-color:#f1cccc}
+.status-box.today{background:#fff4e3;border-color:#efd5ab}
+.status-box.week{background:var(--info-bg);border-color:#c8daef}
+.status-count{font-size:28px;font-weight:800;line-height:1;margin-bottom:8px}
+.status-list{display:flex;flex-direction:column;gap:6px;font-size:12px}
+.status-list div{padding:7px 8px;border-radius:10px;background:rgba(255,255,255,.7)}
+
+/* ── イベントチップ ── */
+.event-chip-list{display:flex;flex-wrap:wrap;gap:8px}
+.event-chip{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;background:var(--panel-soft);border:1px solid var(--border);font-size:12px}
+
+/* ── フォーム ── */
+.hint{background:var(--info-bg);color:var(--info-text);border:1px solid #c8daef;border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:13px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.form-label{font-size:12px;color:var(--text-sub);font-weight:800;margin-bottom:6px}
+input[type=text],input[type=date],select{width:100%;padding:10px 12px;border:1px solid var(--border-strong);border-radius:10px;background:var(--panel);font-size:14px;color:var(--text);font-family:inherit}
+input[type=text]:focus,input[type=date]:focus,select:focus{outline:none;border-color:var(--info);box-shadow:0 0 0 3px rgba(36,104,179,.12)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+.btn-primary{background:var(--text);color:#fff}
+.btn-secondary{background:none;border:1px solid var(--border-strong);color:var(--text-sub)}
+.btn-danger{background:var(--danger-bg);border:1px solid #efc6c6;color:var(--danger-text)}
+.btn-link{background:none;border:none;color:var(--text-sub);text-decoration:underline;font-size:12px;cursor:pointer;font-family:inherit}
+
+/* ── プレビュー（タスク追加） ── */
+.preview{background:var(--panel-soft);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:14px}
+.preview-head{display:grid;grid-template-columns:34px 1.7fr 140px 140px 32px;gap:8px;font-size:11px;color:var(--text-sub);font-weight:800;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.preview-row{display:grid;grid-template-columns:34px 1.7fr 140px 140px 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.preview-row:last-of-type{border-bottom:none}
+.preview-num{text-align:center;color:var(--text-sub);font-weight:800}
+.add-task-btn{margin-top:10px;width:100%;padding:8px 12px;border-radius:10px;border:1px dashed var(--border-strong);background:none;color:var(--text-sub);cursor:pointer;font-family:inherit}
+
+/* ── タスク一覧 ── */
+.filters{display:grid;grid-template-columns:minmax(220px,1fr) 170px;gap:10px;margin-bottom:12px}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub)}
+.legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
+.task-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px}
+.task-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.task-card-title{font-size:16px;font-weight:800}
+.task-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-left:6px solid #cfd3cc;border-radius:12px;background:var(--panel-soft);margin-bottom:8px}
+.task-row.is-normal{border-left-color:#b9c3d1}
+.task-row.is-week{background:var(--info-bg);border-left-color:var(--info)}
+.task-row.is-today{background:#fff4e3;border-left-color:var(--warn)}
+.task-row.is-overdue{background:var(--danger-bg);border-left-color:var(--danger)}
+.task-row.is-done{background:var(--ok-bg);border-left-color:var(--ok);opacity:.72}
+.task-row.is-done .task-name{text-decoration:line-through}
+.chk{width:28px;height:28px;border-radius:8px;border:1.5px solid var(--border-strong);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex-shrink:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.chk.checked{background:var(--ok);border-color:var(--ok)}
+.task-main{flex:1;min-width:0}
+.task-name{font-size:14px;font-weight:800;color:var(--text)}
+.task-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;font-size:12px;color:var(--text-sub)}
+.task-date{font-size:12px;color:var(--text-sub);white-space:nowrap}
+.edit-wrap{display:grid;grid-template-columns:1.8fr 140px auto auto;gap:8px;align-items:center;flex:1;min-width:0}
+.edit-name,.edit-date{width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--info);background:var(--panel);font-family:inherit}
+.save-btn{background:var(--ok);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer;touch-action:manipulation}
+.cancel-btn{background:none;border:1px solid var(--border-strong);color:var(--text-sub);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer;touch-action:manipulation}
+.icon-btn{background:none;border:none;color:var(--text-sub);cursor:pointer;padding:6px 8px;border-radius:8px;line-height:1;font-size:14px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.icon-btn:hover{background:#f0eee8;color:var(--text)}
+.icon-btn.del:hover{color:var(--danger-text)}
+
+/* ── ヘルプ・AI ── */
+.help-list{padding-left:18px;color:var(--text-sub);font-size:13px;line-height:1.9}
+.ai-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.ai-prompt{width:100%;min-height:280px;padding:12px;border:1px solid var(--border-strong);border-radius:12px;background:var(--panel-soft);font-size:13px;line-height:1.7;color:var(--text);font-family:inherit;resize:vertical}
+.ai-note{font-size:12px;color:var(--text-sub);margin-top:8px}
+
+/* ── アニメーション ── */
+@keyframes pulseAlert{0%{box-shadow:0 0 0 0 rgba(194,58,58,.26)}70%{box-shadow:0 0 0 10px rgba(194,58,58,0)}100%{box-shadow:0 0 0 0 rgba(194,58,58,0)}}
+.pulse{animation:pulseAlert 1.8s infinite}
+
+/* ══════════════════════════════════════
+   タブレット (max-width: 900px)
+   ══════════════════════════════════════ */
+@media (max-width:900px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .grid,.note-grid,.status-grid{grid-template-columns:1fr}
+  .preview-head,.preview-row{grid-template-columns:28px 1fr;gap:8px}
+  .preview-head div:nth-child(n+3),.preview-row > *:nth-child(n+3){grid-column:2}
+  .edit-wrap{grid-template-columns:1fr 1fr}
+}
+
+/* ══════════════════════════════════════
+   スマホ (max-width: 640px)
+   ══════════════════════════════════════ */
+@media (max-width:640px){
+  /* デスクトップタブを非表示・ボトムナビを表示 */
+  .tabs{display:none}
+  .bottom-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:100;
+    background:var(--panel);border-top:1px solid var(--border);
+    box-shadow:0 -4px 16px rgba(0,0,0,.08);
+    padding:0;height:var(--nav-h);
+    safe-area-inset-bottom:env(safe-area-inset-bottom);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .bnav-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:none;background:none;cursor:pointer;padding:8px 4px;gap:3px;
+    font-family:inherit;color:var(--text-sub);font-size:10px;font-weight:800;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+    transition:color .15s;
+  }
+  .bnav-item.active{color:var(--info)}
+  .bnav-icon{font-size:20px;line-height:1}
+
+  /* コンテンツ下部にボトムナビ分の余白 */
+  .app{padding:12px 12px calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px)}
+  .header h1{font-size:22px}
+  .header p{font-size:12px}
+
+  /* トースト */
+  .toast{top:auto;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);left:12px;right:12px;min-width:auto;max-width:none}
+
+  /* カード */
+  .card{border-radius:14px;padding:14px}
+  .card-head{gap:8px;margin-bottom:10px}
+
+  /* 統計 - 2列 */
+  .stats{grid-template-columns:repeat(2,1fr);gap:8px}
+  .stat{padding:12px 10px}
+  .stat-num{font-size:26px}
+
+  /* フォーム */
+  .form-grid,.filters{grid-template-columns:1fr}
+  input[type=text],input[type=date],select{
+    padding:13px 12px;font-size:16px; /* 16px以上でiOSのズーム防止 */
+    border-radius:12px;
+  }
+
+  /* ボタン */
+  .btn{padding:13px 18px;font-size:15px;border-radius:12px}
+  .btn-row{gap:8px}
+  .btn-row .btn{flex:1}
+  .add-task-btn{padding:14px 12px;font-size:14px}
+
+  /* タスク行 */
+  .task-card-head{flex-direction:column;gap:8px}
+  .task-card-head .btn-row{width:100%}
+  .task-row{
+    flex-wrap:wrap;align-items:flex-start;gap:8px;
+    padding:12px 10px;border-left-width:5px;
+  }
+  .chk{width:32px;height:32px;border-radius:9px;font-size:15px;margin-top:1px}
+  .task-main{order:2;flex-basis:calc(100% - 48px)}
+  .task-date{order:3;font-size:11px;margin-left:40px}
+  .task-row > .badge{order:4;margin-left:40px}
+  .task-row > .icon-btn{order:5;padding:8px;font-size:16px}
+
+  /* 編集モード（スマホ） */
+  .edit-wrap{
+    display:flex;flex-direction:column;gap:8px;
+    width:100%;flex:none;order:2;
+  }
+  .edit-name,.edit-date{
+    padding:12px 10px;font-size:16px;border-radius:12px;
+  }
+  .edit-wrap .save-btn,.edit-wrap .cancel-btn{
+    padding:12px;font-size:14px;border-radius:12px;
+  }
+  .save-cancel-row{display:flex;gap:8px}
+  .save-cancel-row .save-btn,.save-cancel-row .cancel-btn{flex:1}
+
+  /* プレビュー（タスク追加） */
+  .preview-head{display:none}
+  .preview-row{
+    display:flex;flex-direction:column;gap:6px;
+    padding:12px 10px;border-bottom:1px solid var(--border);
+    border-radius:0;
+  }
+  .preview-row input[type=text]{font-size:16px}
+  .preview-row input[type=date]{font-size:16px}
+  .preview-num{display:none}
+  .preview-row-label{font-size:11px;color:var(--text-sub);font-weight:800;margin-bottom:2px}
+  .preview-row-hint{font-size:12px;color:var(--text-sub)}
+  .preview-row-del{text-align:right}
+
+  /* イベントチップ：縦並び */
+  .event-chip-list{flex-direction:column;gap:6px}
+  .event-chip{border-radius:14px;padding:10px 12px;flex-wrap:wrap}
+
+  /* ステータス */
+  .status-grid{grid-template-columns:1fr;gap:8px}
+  .status-count{font-size:24px}
+
+  /* AI相談 */
+  .ai-actions{flex-direction:column}
+  .ai-actions .btn{width:100%;text-align:center}
+  .ai-prompt{min-height:200px;font-size:13px}
+
+  /* ヘルプ */
+  .help-list{font-size:14px;line-height:2}
+}
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<!-- スマホ用ボトムナビ -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bnav-item active" id="bn-dashboard" onclick="showTab('dashboard')">
+    <span class="bnav-icon">🏠</span>ホーム
+  </button>
+  <button class="bnav-item" id="bn-add" onclick="showTab('add')">
+    <span class="bnav-icon">➕</span>追加
+  </button>
+  <button class="bnav-item" id="bn-tasks" onclick="showTab('tasks')">
+    <span class="bnav-icon">📋</span>タスク
+  </button>
+  <button class="bnav-item" id="bn-help" onclick="showTab('help')">
+    <span class="bnav-icon">❓</span>見方
+  </button>
+</nav>
+
+<div class="app">
+  <div class="header">
+    <h1>橋本くんの業務タスク管理ツール</h1>
+    <p>会議や研修会が決まったときに、やること・目標期限・注意点をひと目で確認できるシンプル版です。</p>
+  </div>
+
+  <div id="top-alert" class="top-alert"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('dashboard')">ダッシュボード</button>
+    <button class="tab" onclick="showTab('add')">イベント追加</button>
+    <button class="tab" onclick="showTab('tasks')">タスク一覧</button>
+    <button class="tab" onclick="showTab('help')">見方</button>
+  </div>
+
+  <div id="tab-dashboard">
+    <div class="stats">
+      <div class="stat"><div class="stat-label">登録イベント</div><div class="stat-num" id="st-events">0</div><div class="stat-sub">会議・研修会など</div></div>
+      <div class="stat"><div class="stat-label">未完了タスク</div><div class="stat-num" id="st-pending">0</div><div class="stat-sub">まだ終わっていない準備</div></div>
+      <div class="stat"><div class="stat-label">期限超過</div><div class="stat-num" id="st-overdue">0</div><div class="stat-sub">最優先で確認</div></div>
+      <div class="stat"><div class="stat-label">今週中</div><div class="stat-num" id="st-week">0</div><div class="stat-sub">7日以内のタスク</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="sec-title">登録中の予定</div>
+          <div class="sec-sub">会議・研修会をひと目で確認できます</div>
+        </div>
+      </div>
+      <div id="event-chip-list"></div>
+    </div>
+
+    <div class="status-grid">
+      <div class="status-box overdue">
+        <h3>期限超過</h3>
+        <p>まず最優先で確認</p>
+        <div class="status-count" id="count-overdue">0</div>
+        <div class="status-list" id="list-overdue"></div>
+      </div>
+      <div class="status-box today">
+        <h3>今日まで</h3>
+        <p>本日中に対応</p>
+        <div class="status-count" id="count-today">0</div>
+        <div class="status-list" id="list-today"></div>
+      </div>
+      <div class="status-box week">
+        <h3>今週中</h3>
+        <p>7日以内に対応</p>
+        <div class="status-count" id="count-week">0</div>
+        <div class="status-list" id="list-week"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="sec-title">次にやること</div>
+              <div class="sec-sub">期限が近い未完了タスクから順番に表示します</div>
+            </div>
+          </div>
+          <div id="next-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="sec-title">イベントごとの進み具合</div>
+              <div class="sec-sub">どのイベントの準備が遅れているか確認できます</div>
+            </div>
+          </div>
+          <div id="event-list"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" id="overdue-card-wrap">
+          <div class="card-head">
+            <div>
+              <div class="sec-title">期限超過アラート</div>
+              <div class="sec-sub">赤い項目はすぐに確認してください</div>
+            </div>
+          </div>
+          <div id="overdue-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-add" style="display:none">
+    <div class="hint">イベントの日付を入れると、標準タスクと目標期限が自動で出ます。「タスクを登録」を押すと登録完了メッセージが表示されます。</div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="sec-title">イベントを登録</div>
+          <div class="sec-sub">必要最低限の入力だけでタスクを作れます</div>
+        </div>
+      </div>
+
+      <div id="inline-msg" class="inline-msg"></div>
+
+      <div class="form-grid">
+        <div>
+          <div class="form-label">イベント種別</div>
+          <select id="evt-type" onchange="updatePreview()">
+            <option value="seminar">研修会</option>
+            <option value="meeting">会議</option>
+            <option value="application">申請事務</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">イベント名</div>
+          <input type="text" id="evt-name" placeholder="例：新人研修会、月例会議">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <div class="form-label">開催日・締切日</div>
+          <input type="date" id="evt-date" onchange="updatePreview()">
+        </div>
+        <div>
+          <div class="form-label">場所・補足（任意）</div>
+          <input type="text" id="evt-place" placeholder="例：第1会議室、オンライン">
+        </div>
+      </div>
+
+      <div class="card-head" style="margin-top:6px">
+        <div>
+          <div class="sec-title">自動生成タスク</div>
+          <div class="sec-sub">登録前にタスク名と期限は調整できます</div>
+        </div>
+        <button class="btn-link" onclick="resetTasks()">テンプレートに戻す</button>
+      </div>
+
+      <div class="preview" id="preview-box">
+        <span style="color:var(--text-sub)">種別と開催日を入力するとタスク一覧が表示されます</span>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="addEvent()" id="reg-btn" disabled style="opacity:.45">タスクを登録</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-tasks" style="display:none">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="sec-title">タスク一覧</div>
+          <div class="sec-sub">色分けで緊急度が分かるようにしています</div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:var(--danger)"></i>期限超過</span>
+        <span><i style="background:var(--warn)"></i>今日まで</span>
+        <span><i style="background:var(--info)"></i>今週中</span>
+        <span><i style="background:#b9c3d1"></i>通常</span>
+        <span><i style="background:var(--ok)"></i>完了</span>
+      </div>
+
+      <div class="filters">
+        <input type="text" id="search" placeholder="タスク名・イベント名で検索" oninput="renderTasks()">
+        <select id="filter" onchange="renderTasks()">
+          <option value="all">すべて</option>
+          <option value="pending">未完了のみ</option>
+          <option value="overdue">期限超過</option>
+          <option value="today">今日まで</option>
+          <option value="week">今週中</option>
+          <option value="done">完了済み</option>
+        </select>
+      </div>
+
+      <div id="task-list"></div>
+    </div>
+  </div>
+
+  <div id="tab-help" style="display:none">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="sec-title">このツールの見方</div>
+          <div class="sec-sub">まず見る場所と、迷ったときの相談先をまとめています</div>
+        </div>
+      </div>
+      <ul class="help-list">
+        <li>まずダッシュボードの「期限超過」「今日まで」「今週中」を確認する</li>
+        <li>次に「次にやること」を上から順に進める</li>
+        <li>登録中の予定で、今抱えている会議や研修会を確認する</li>
+        <li>タスク一覧では、予定ごとに「＋ タスク追加」「予定削除」ができる</li>
+        <li>イベント追加では、登録前に自動生成タスクの名前と期限を調整できる</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="sec-title">AIに相談する</div>
+          <div class="sec-sub">困ったときに、今の状況をそのまま相談文にして使えます</div>
+        </div>
+      </div>
+      <div class="hint">個人情報・機微情報は入れずに使ってください。下の相談文をコピーして、ChatGPT や Gemini に貼り付ければ相談できます。</div>
+      <div class="ai-actions">
+        <button class="btn btn-secondary" onclick="openAIService('chatgpt')">ChatGPTを開く</button>
+        <button class="btn btn-secondary" onclick="openAIService('gemini')">Geminiを開く</button>
+        <button class="btn btn-primary" onclick="copyAiPrompt()">相談文をコピー</button>
+      </div>
+      <div class="form-label">相談文テンプレート</div>
+      <textarea id="ai-prompt" class="ai-prompt" readonly></textarea>
+      <div class="ai-note">使い方の例：「何から着手すべきか」「上司にどう確認すればよいか」「メール文を作ってほしい」などを、冒頭の【相談したいこと】に追記してください。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TPL={
+  seminar:[
+    {n:'開催案内・チラシ作成',d:-42},
+    {n:'講師への依頼・確認',d:-35},
+    {n:'会場・設備の予約',d:-28},
+    {n:'参加者への案内配布',d:-21},
+    {n:'参加申込の取りまとめ',d:-14},
+    {n:'資料・テキストの準備',d:-10},
+    {n:'当日設営・備品確認',d:-3},
+    {n:'アンケート・報告書作成',d:3}
+  ],
+  meeting:[
+    {n:'議題・アジェンダの作成',d:-14},
+    {n:'出席者への案内送付',d:-10},
+    {n:'会議室・設備の予約',d:-10},
+    {n:'資料の作成・送付',d:-5},
+    {n:'当日準備（プロジェクター等）',d:-1},
+    {n:'議事録の作成・共有',d:3}
+  ],
+  application:[
+    {n:'必要書類の確認・収集',d:-21},
+    {n:'担当者への記入依頼',d:-14},
+    {n:'書類のチェック・修正',d:-7},
+    {n:'上長確認・承認取得',d:-3},
+    {n:'提出・受理確認',d:0}
+  ]
+};
+const LBL={seminar:'研修会',meeting:'会議',application:'申請事務'};
+const BC={seminar:'b-seminar',meeting:'b-meeting',application:'b-application'};
+
+function esc(v){
+  return String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function parseDateLocal(ds){
+  if(!ds) return null;
+  const m=String(ds).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return null;
+  return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+}
+function toDateInput(date){
+  const y=date.getFullYear();
+  const m=String(date.getMonth()+1).padStart(2,'0');
+  const d=String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function fmt(ds){
+  const d=parseDateLocal(ds);
+  return d ? `${d.getMonth()+1}/${d.getDate()}` : '';
+}
+function fmtFull(ds){
+  const d=parseDateLocal(ds);
+  return d ? `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}` : '';
+}
+function daysUntil(ds){
+  const d=parseDateLocal(ds);
+  if(!d) return 9999;
+  const n=new Date();
+  n.setHours(0,0,0,0);
+  return Math.round((d-n)/86400000);
+}
+function diffDays(a,b){
+  const da=parseDateLocal(a), db=parseDateLocal(b);
+  if(!da || !db) return null;
+  return Math.round((da-db)/86400000);
+}
+function relLabel(taskDue,eventDate){
+  const diff=diffDays(taskDue,eventDate);
+  if(diff===null) return '';
+  if(diff===0) return '開催当日が目安';
+  if(diff<0) return `開催${Math.abs(diff)}日前が目安`;
+  return `開催${diff}日後が目安`;
+}
+function urgencyText(ds, done=false){
+  if(done) return '完了';
+  const d=daysUntil(ds);
+  if(d<0) return '期限超過';
+  if(d===0) return '今日まで';
+  if(d<=7) return '今週中';
+  return '通常';
+}
+function urgencyBadge(ds, done=false){
+  if(done) return '<span class="badge b-gray">完了</span>';
+  const d=daysUntil(ds);
+  if(d<0) return '<span class="badge b-danger">期限超過</span>';
+  if(d===0) return '<span class="badge b-warn">今日まで</span>';
+  if(d<=7) return `<span class="badge b-ok">今週中</span>`;
+  return `<span class="badge b-gray">通常</span>`;
+}
+function statusClass(task){
+  if(task.done) return 'is-done';
+  const d=daysUntil(task.due);
+  if(d<0) return 'is-overdue';
+  if(d===0) return 'is-today';
+  if(d<=7) return 'is-week';
+  return 'is-normal';
+}
+function getStoredArray(keys){
+  for(const key of keys){
+    try{
+      const raw=localStorage.getItem(key);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+  }
+  return [];
+}
+function normalizeEvents(list){
+  return (Array.isArray(list)?list:[]).map(e=>({
+    id:String(e.id||Date.now()),
+    type:e.type||'meeting',
+    name:e.name||LBL[e.type]||'イベント',
+    date:e.date||'',
+    place:e.place||e.note||''
+  }));
+}
+function normalizeTasks(list){
+  return (Array.isArray(list)?list:[]).map(t=>({
+    id:String(t.id||Date.now()),
+    evtId:String(t.evtId||''),
+    name:t.name||'名称未設定',
+    due:t.due||'',
+    done:!!t.done
+  }));
+}
+
+let events=normalizeEvents(getStoredArray(['tm_hashimoto_simple_v2_events','tm_hashimoto_simple_events','tm_hashimoto_events','tm3_events','tm2_events']));
+let tasks=normalizeTasks(getStoredArray(['tm_hashimoto_simple_v2_tasks','tm_hashimoto_simple_tasks','tm_hashimoto_tasks','tm3_tasks','tm2_tasks']));
+let draftTasks=[];
+let editId=null;
+let toastTimer=null;
+
+function save(){
+  localStorage.setItem('tm_hashimoto_simple_v2_events',JSON.stringify(events));
+  localStorage.setItem('tm_hashimoto_simple_v2_tasks',JSON.stringify(tasks));
+}
+function showToast(type,title,message){
+  const el=document.getElementById('toast');
+  el.className=`toast show ${type}`;
+  el.innerHTML=`<strong>${esc(title)}</strong><p>${esc(message)}</p>`;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.className='toast';el.innerHTML='';},3200);
+}
+function showInlineMessage(type,title,message){
+  const el=document.getElementById('inline-msg');
+  el.className=`inline-msg show ${type}`;
+  el.innerHTML=`<strong>${esc(title)}</strong><p>${esc(message)}</p>`;
+}
+function clearInlineMessage(){
+  const el=document.getElementById('inline-msg');
+  el.className='inline-msg';
+  el.innerHTML='';
+}
+function showTab(tab){
+  ['dashboard','add','tasks','help'].forEach(id=>{
+    document.getElementById('tab-'+id).style.display=id===tab?'':'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    el.classList.toggle('active',['dashboard','add','tasks','help'][i]===tab);
+  });
+  // ボトムナビの active 同期
+  ['dashboard','add','tasks','help'].forEach(id=>{
+    const bn=document.getElementById('bn-'+id);
+    if(bn) bn.classList.toggle('active',id===tab);
+  });
+  if(tab==='dashboard') renderDashboard();
+  if(tab==='tasks'){ editId=null; renderTasks(); }
+  if(tab==='help') refreshAiPrompt();
+}
+function setTopAlert(){
+  const el=document.getElementById('top-alert');
+  const overdue=tasks.filter(t=>!t.done&&daysUntil(t.due)<0);
+  const today=tasks.filter(t=>!t.done&&daysUntil(t.due)===0);
+  const week=tasks.filter(t=>!t.done&&daysUntil(t.due)>=1&&daysUntil(t.due)<=7);
+  el.className='top-alert';
+  if(overdue.length){
+    el.classList.add('show','danger','pulse');
+    el.innerHTML=`<strong>期限超過タスクが${overdue.length}件あります</strong><p>まずは赤いタスクから確認してください。</p>`;
+    document.title=`【要確認 ${overdue.length}件】橋本くんの業務タスク管理ツール`;
+    return;
+  }
+  if(today.length){
+    el.classList.add('show','warn');
+    el.innerHTML=`<strong>今日までのタスクが${today.length}件あります</strong><p>本日中に終わらせたい作業です。</p>`;
+    document.title='橋本くんの業務タスク管理ツール';
+    return;
+  }
+  if(week.length){
+    el.classList.add('show','ok');
+    el.innerHTML=`<strong>今週中のタスクが${week.length}件あります</strong><p>余裕があるうちに先回りで進めてください。</p>`;
+    document.title='橋本くんの業務タスク管理ツール';
+    return;
+  }
+  el.classList.add('show','ok');
+  el.innerHTML='<strong>直近の注意タスクはありません</strong><p>新しいイベントが決まったら「イベント追加」から登録してください。</p>';
+  document.title='橋本くんの業務タスク管理ツール';
+}
+
+function updatePreview(){
+  clearInlineMessage();
+  const type=document.getElementById('evt-type').value;
+  const date=document.getElementById('evt-date').value;
+  const base=parseDateLocal(date);
+  if(!base){
+    draftTasks=[];
+    document.getElementById('preview-box').innerHTML='<span style="color:var(--text-sub)">種別と開催日を入力するとタスク一覧が表示されます</span>';
+    document.getElementById('reg-btn').disabled=true;
+    document.getElementById('reg-btn').style.opacity='.45';
+    return;
+  }
+  draftTasks=TPL[type].map(t=>{
+    const d=new Date(base);
+    d.setDate(d.getDate()+t.d);
+    return {name:t.n,due:toDateInput(d)};
+  });
+  renderDraftTasks();
+  document.getElementById('reg-btn').disabled=false;
+  document.getElementById('reg-btn').style.opacity='1';
+}
+function renderDraftTasks(){
+  if(!draftTasks.length){
+    document.getElementById('preview-box').innerHTML='<div class="empty">タスクがありません。</div>';
+    return;
+  }
+  const eventDate=document.getElementById('evt-date').value;
+  // デスクトップ用ヘッダー
+  let html='<div class="preview-head"><div>No</div><div>タスク</div><div>目標期限</div><div>目安</div><div></div></div>';
+  draftTasks.forEach((t,idx)=>{
+    html+=`<div class="preview-row">
+      <div class="preview-num">${idx+1}</div>
+      <div><div class="preview-row-label" style="display:none">タスク名</div><input type="text" value="${esc(t.name)}" oninput="draftTasks[${idx}].name=this.value" placeholder="タスク名"></div>
+      <div><div class="preview-row-label" style="display:none">目標期限</div><input type="date" value="${esc(t.due)}" onchange="draftTasks[${idx}].due=this.value;renderDraftTasks()"></div>
+      <div class="preview-row-hint" style="font-size:12px;color:var(--text-sub)">${esc(relLabel(t.due,eventDate))}</div>
+      <div class="preview-row-del"><button class="icon-btn del" onclick="removeDraftTask(${idx})" title="削除">✕</button></div>
+    </div>`;
+  });
+  html+='<button class="add-task-btn" onclick="addDraftTask()">＋ タスクを追加</button>';
+  document.getElementById('preview-box').innerHTML=html;
+}
+function addDraftTask(){
+  const date=document.getElementById('evt-date').value;
+  draftTasks.push({name:'',due:date||''});
+  renderDraftTasks();
+}
+function removeDraftTask(idx){
+  draftTasks.splice(idx,1);
+  renderDraftTasks();
+}
+function resetTasks(){
+  const date=document.getElementById('evt-date').value;
+  if(!date){
+    showInlineMessage('warn','先に開催日を入力してください','開催日・締切日を入れるとテンプレートが表示されます。');
+    return;
+  }
+  updatePreview();
+}
+function addEvent(){
+  clearInlineMessage();
+  const type=document.getElementById('evt-type').value;
+  const name=(document.getElementById('evt-name').value.trim())||LBL[type];
+  const date=document.getElementById('evt-date').value;
+  const place=document.getElementById('evt-place').value.trim();
+  if(!date){
+    showInlineMessage('warn','開催日を入力してください','開催日・締切日を入れると登録できます。');
+    return;
+  }
+  if(!draftTasks.length){
+    showInlineMessage('warn','タスクがありません','表示されたテンプレートを確認してください。');
+    return;
+  }
+  const invalid=draftTasks.filter(t=>!t.name.trim()||!t.due);
+  if(invalid.length){
+    showInlineMessage('danger','未入力の項目があります','タスク名または目標期限が空の行を修正してください。');
+    return;
+  }
+  const id=String(Date.now());
+  events.push({id,type,name,date,place});
+  draftTasks.forEach((t,i)=>{
+    tasks.push({id:`${id}_${i}`,evtId:id,name:t.name.trim(),due:t.due,done:false});
+  });
+  save();
+  document.getElementById('evt-name').value='';
+  document.getElementById('evt-date').value='';
+  document.getElementById('evt-place').value='';
+  draftTasks=[];
+  document.getElementById('preview-box').innerHTML='<span style="color:var(--text-sub)">種別と開催日を入力するとタスク一覧が表示されます</span>';
+  document.getElementById('reg-btn').disabled=true;
+  document.getElementById('reg-btn').style.opacity='.45';
+  showInlineMessage('ok','登録しました',`「${name}」のタスクを${tasks.filter(t=>t.evtId===id).length}件登録しました。`);
+  showToast('ok','登録しました',`「${name}」を追加しました。`);
+  setTopAlert();
+  renderDashboard();
+  renderTasks();
+}
+function toggleTask(id){
+  const t=tasks.find(v=>v.id===id);
+  if(t) t.done=!t.done;
+  save();
+  setTopAlert();
+  renderTasks();
+  renderDashboard();
+}
+function deleteTask(id){
+  if(!confirm('このタスクを削除しますか？')) return;
+  tasks=tasks.filter(t=>t.id!==id);
+  save();
+  showToast('ok','削除しました','タスクを削除しました。');
+  setTopAlert();
+  renderTasks();
+  renderDashboard();
+}
+function deleteEvent(id){
+  const event=events.find(e=>e.id===id);
+  if(!confirm('この予定と関連タスクをすべて削除しますか？')) return;
+  events=events.filter(e=>e.id!==id);
+  tasks=tasks.filter(t=>t.evtId!==id);
+  save();
+  showToast('ok','予定を削除しました',`${event?.name||'予定'}を削除しました。`);
+  setTopAlert();
+  renderTasks();
+  renderDashboard();
+}
+function addTaskToEvent(evtId){
+  const e=events.find(v=>v.id===evtId);
+  if(!e) return;
+  const id=`${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+  tasks.push({id,evtId,name:'',due:e.date,done:false});
+  save();
+  editId=id;
+  showTab('tasks');
+}
+function startEdit(id){
+  editId=id;
+  renderTasks();
+  setTimeout(()=>{
+    const el=document.getElementById('en-'+id);
+    if(el){ el.focus(); el.select(); }
+  },40);
+}
+function cancelEdit(){
+  editId=null;
+  renderTasks();
+}
+function saveEdit(id){
+  const n=document.getElementById('en-'+id)?.value.trim();
+  const d=document.getElementById('ed-'+id)?.value;
+  if(!n){ showToast('warn','タスク名を入力してください','空欄のままでは保存できません。'); return; }
+  if(!d){ showToast('warn','目標期限を入力してください','日付を入れてから保存してください。'); return; }
+  const t=tasks.find(v=>v.id===id);
+  if(t){ t.name=n; t.due=d; }
+  editId=null;
+  save();
+  showToast('ok','保存しました','タスクを更新しました。');
+  setTopAlert();
+  renderTasks();
+  renderDashboard();
+}
+
+function taskHTML(t,editing){
+  const evt=events.find(e=>e.id===t.evtId);
+  if(editing){
+    return `<div class="task-row ${statusClass(t)}">
+      <button class="chk ${t.done?'checked':''}" onclick="toggleTask('${t.id}')">${t.done?'✓':''}</button>
+      <div class="edit-wrap">
+        <input class="edit-name" id="en-${t.id}" value="${esc(t.name)}" placeholder="タスク名" onkeydown="if(event.key==='Enter')saveEdit('${t.id}');if(event.key==='Escape')cancelEdit()">
+        <input class="edit-date" type="date" id="ed-${t.id}" value="${esc(t.due)}">
+        <div class="save-cancel-row">
+          <button class="save-btn" onclick="saveEdit('${t.id}')">保存</button>
+          <button class="cancel-btn" onclick="cancelEdit()">取消</button>
+        </div>
+      </div>
+      <button class="icon-btn del" onclick="deleteTask('${t.id}')" title="削除">✕</button>
+    </div>`;
+  }
+  return `<div class="task-row ${statusClass(t)}">
+    <button class="chk ${t.done?'checked':''}" onclick="toggleTask('${t.id}')">${t.done?'✓':''}</button>
+    <div class="task-main">
+      <div class="task-name">${esc(t.name)}</div>
+      <div class="task-meta">
+        ${evt?`<span>${esc(evt.name)}</span>`:''}
+        ${evt?`<span>${esc(relLabel(t.due,evt.date))}</span>`:''}
+      </div>
+    </div>
+    <span class="task-date">${fmt(t.due)}まで</span>
+    ${urgencyBadge(t.due,t.done)}
+    <button class="icon-btn" onclick="startEdit('${t.id}')" title="編集">✏️</button>
+    <button class="icon-btn del" onclick="deleteTask('${t.id}')" title="削除">✕</button>
+  </div>`;
+}
+function renderMiniList(targetId,list,emptyText){
+  const el=document.getElementById(targetId);
+  if(!list.length){
+    el.innerHTML=`<div>${esc(emptyText)}</div>`;
+    return;
+  }
+  el.innerHTML=list.slice(0,3).map(t=>{
+    const evt=events.find(e=>e.id===t.evtId);
+    return `<div>${esc(t.name)}${evt?`（${esc(evt.name)}）`:''}</div>`;
+  }).join('');
+}
+function buildAiPrompt(){
+  const pending=tasks.filter(t=>!t.done);
+  const overdue=pending.filter(t=>daysUntil(t.due)<0);
+  const today=pending.filter(t=>daysUntil(t.due)===0);
+  const week=pending.filter(t=>daysUntil(t.due)>=1&&daysUntil(t.due)<=7);
+  const next=[...pending].sort((a,b)=>a.due.localeCompare(b.due)).slice(0,5);
+  const taskLines=next.length?next.map((t,i)=>{
+    const evt=events.find(e=>e.id===t.evtId);
+    return `${i+1}. ${t.name}（${evt?evt.name:'イベント未設定'} / 期限 ${fmtFull(t.due)} / ${urgencyText(t.due,t.done)}）`;
+  }).join('\n'):'なし';
+  return [
+    '以下は新人職員の業務タスク管理状況です。',
+    '優先順位・今日やる順番・上司への確認ポイントを、やさしく具体的な日本語で教えてください。',
+    '',
+    '【相談したいこと】',
+    'ここに困っていることを書く',
+    '',
+    '【現在の状況】',
+    `登録イベント数: ${events.length}`,
+    `未完了タスク数: ${pending.length}`,
+    `期限超過: ${overdue.length}件`,
+    `今日まで: ${today.length}件`,
+    `今週中: ${week.length}件`,
+    '',
+    '【優先度が高いタスク】',
+    taskLines,
+    '',
+    '【返答してほしい内容】',
+    '1. いま最優先でやることを3つ',
+    '2. 今日中に終える順番',
+    '3. 上司に確認した方がよいこと',
+    '4. 必要ならメール文や連絡文のたたき台'
+  ].join('\n');
+}
+function refreshAiPrompt(){
+  const el=document.getElementById('ai-prompt');
+  if(el) el.value=buildAiPrompt();
+}
+function copyAiPrompt(){
+  const text=buildAiPrompt();
+  const copyAction=navigator.clipboard&&navigator.clipboard.writeText
+    ? navigator.clipboard.writeText(text)
+    : Promise.reject();
+  copyAction.then(()=>{
+    refreshAiPrompt();
+    showToast('ok','コピーしました','AIへの相談文をコピーしました。');
+  }).catch(()=>{
+    const el=document.getElementById('ai-prompt');
+    if(el){
+      el.value=text;
+      el.focus();
+      el.select();
+    }
+    showToast('warn','自動コピーできませんでした','表示された相談文を手動でコピーしてください。');
+  });
+}
+function openAIService(service){
+  const map={
+    chatgpt:'https://chatgpt.com/',
+    gemini:'https://gemini.google.com/app'
+  };
+  const url=map[service];
+  if(url) window.open(url,'_blank','noopener');
+}
+function renderDashboard(){
+  const pending=tasks.filter(t=>!t.done);
+  const overdue=pending.filter(t=>daysUntil(t.due)<0);
+  const today=pending.filter(t=>daysUntil(t.due)===0);
+  const week=pending.filter(t=>daysUntil(t.due)>=1&&daysUntil(t.due)<=7);
+  document.getElementById('st-events').textContent=events.length;
+  document.getElementById('st-pending').textContent=pending.length;
+  document.getElementById('st-overdue').textContent=overdue.length;
+  document.getElementById('st-week').textContent=today.length+week.length;
+
+  const chipWrap=document.getElementById('event-chip-list');
+  if(!events.length){
+    chipWrap.innerHTML='<div class="empty">予定はまだ登録されていません。</div>';
+  }else{
+    chipWrap.innerHTML=`<div class="event-chip-list">${[...events].sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
+      const d=daysUntil(e.date);
+      const label=d<0?'終了':d===0?'今日':d<=7?`あと${d}日`:`あと${d}日`;
+      return `<div class="event-chip"><span class="badge ${BC[e.type]}">${LBL[e.type]}</span><span>${esc(e.name)}</span><span style="color:var(--text-sub)">${fmtFull(e.date)}</span><span class="badge ${d<0?'b-gray':d===0?'b-warn':'b-ok'}">${label}</span></div>`;
+    }).join('')}</div>`;
+  }
+
+  document.getElementById('count-overdue').textContent=overdue.length;
+  document.getElementById('count-today').textContent=today.length;
+  document.getElementById('count-week').textContent=week.length;
+  renderMiniList('list-overdue', overdue.sort((a,b)=>a.due.localeCompare(b.due)), '該当なし');
+  renderMiniList('list-today', today.sort((a,b)=>a.due.localeCompare(b.due)), '該当なし');
+  renderMiniList('list-week', week.sort((a,b)=>a.due.localeCompare(b.due)), '該当なし');
+
+  const next=[...pending].sort((a,b)=>a.due.localeCompare(b.due)).slice(0,6);
+  let nextHtml='';
+  if(!next.length){
+    nextHtml='<div class="empty">未完了タスクはありません。新しいイベントを登録してください。</div>';
+  }else{
+    nextHtml='<div class="list">';
+    next.forEach(t=>{
+      const evt=events.find(e=>e.id===t.evtId);
+      nextHtml+=`<div class="item">
+        ${urgencyBadge(t.due,false)}
+        <div class="item-main">
+          <div class="item-title">${esc(t.name)}</div>
+          <div class="meta">
+            ${evt?`<span>${esc(evt.name)}</span>`:''}
+            <span>目標期限 ${fmtFull(t.due)}</span>
+            ${evt?`<span>${esc(relLabel(t.due,evt.date))}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+    nextHtml+='</div>';
+  }
+  document.getElementById('next-list').innerHTML=nextHtml;
+
+  let overdueHtml='';
+  if(!overdue.length){
+    overdueHtml='<div class="empty">期限超過タスクはありません。</div>';
+    document.getElementById('overdue-card-wrap').classList.remove('pulse');
+  }else{
+    overdueHtml='<div class="list">';
+    [...overdue].sort((a,b)=>a.due.localeCompare(b.due)).slice(0,8).forEach(t=>{
+      const evt=events.find(e=>e.id===t.evtId);
+      overdueHtml+=`<div class="item" style="background:var(--danger-bg);border-color:#f1cfcf">
+        <span class="badge b-danger">期限超過</span>
+        <div class="item-main">
+          <div class="item-title">${esc(t.name)}</div>
+          <div class="meta">
+            ${evt?`<span>${esc(evt.name)}</span>`:''}
+            <span>${fmtFull(t.due)}</span>
+            ${evt?`<span>${esc(relLabel(t.due,evt.date))}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+    overdueHtml+='</div>';
+    document.getElementById('overdue-card-wrap').classList.add('pulse');
+  }
+  document.getElementById('overdue-list').innerHTML=overdueHtml;
+
+  let eventHtml='';
+  if(!events.length){
+    eventHtml='<div class="empty">イベントがまだ登録されていません。</div>';
+  }else{
+    eventHtml='<div class="list">';
+    [...events].sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+      const ts=tasks.filter(t=>t.evtId===e.id);
+      const done=ts.filter(t=>t.done).length;
+      const total=ts.length;
+      const pct=total?Math.round(done/total*100):0;
+      const d=daysUntil(e.date);
+      const when=d<0?'<span class="badge b-gray">終了</span>':d===0?'<span class="badge b-warn">今日</span>':d<=7?`<span class="badge b-ok">あと${d}日</span>`:`<span class="badge b-gray">あと${d}日</span>`;
+      eventHtml+=`<div class="item">
+        <span class="badge ${BC[e.type]}">${LBL[e.type]}</span>
+        <div class="item-main">
+          <div class="item-title">${esc(e.name)}</div>
+          <div class="meta">
+            <span>${fmtFull(e.date)}</span>
+            ${e.place?`<span>${esc(e.place)}</span>`:''}
+            <span>進捗 ${done}/${total}</span>
+          </div>
+          <div class="progress"><span style="width:${pct}%"></span></div>
+        </div>
+        ${when}
+      </div>`;
+    });
+    eventHtml+='</div>';
+  }
+  document.getElementById('event-list').innerHTML=eventHtml;
+  refreshAiPrompt();
+}
+function renderTasks(){
+  const filter=document.getElementById('filter')?.value || 'all';
+  const q=(document.getElementById('search')?.value || '').trim().toLowerCase();
+  let list=[...tasks];
+  if(filter==='pending') list=list.filter(t=>!t.done);
+  if(filter==='overdue') list=list.filter(t=>!t.done&&daysUntil(t.due)<0);
+  if(filter==='today') list=list.filter(t=>!t.done&&daysUntil(t.due)===0);
+  if(filter==='week') list=list.filter(t=>!t.done&&daysUntil(t.due)>=1&&daysUntil(t.due)<=7);
+  if(filter==='done') list=list.filter(t=>t.done);
+  if(q){
+    list=list.filter(t=>{
+      const evt=events.find(e=>e.id===t.evtId);
+      return [t.name,evt?.name||''].join(' ').toLowerCase().includes(q);
+    });
+  }
+  list.sort((a,b)=>a.due.localeCompare(b.due));
+  const grouped={};
+  list.forEach(t=>{
+    const evt=events.find(e=>e.id===t.evtId);
+    const key=evt?evt.id:'unknown';
+    if(!grouped[key]) grouped[key]={evt,ts:[]};
+    grouped[key].ts.push(t);
+  });
+  let html='';
+  if(!list.length) html='<div class="empty">条件に合うタスクはありません。</div>';
+  Object.values(grouped).forEach(g=>{
+    if(!g.evt) return;
+    const done=g.ts.filter(t=>t.done).length;
+    const total=g.ts.length;
+    const pct=total?Math.round(done/total*100):0;
+    html+=`<div class="task-card">
+      <div class="task-card-head">
+        <div>
+          <div class="task-card-title">${esc(g.evt.name)}</div>
+          <div class="meta">
+            <span class="badge ${BC[g.evt.type]}">${LBL[g.evt.type]}</span>
+            <span>${fmtFull(g.evt.date)}</span>
+            ${g.evt.place?`<span>${esc(g.evt.place)}</span>`:''}
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="addTaskToEvent('${g.evt.id}')">＋ タスク追加</button>
+          <button class="btn btn-danger" onclick="deleteEvent('${g.evt.id}')">予定削除</button>
+        </div>
+      </div>
+      <div class="progress" style="margin-bottom:10px"><span style="width:${pct}%"></span></div>`;
+    g.ts.forEach(t=>{ html+=taskHTML(t,editId===t.id); });
+    html+='</div>';
+  });
+  document.getElementById('task-list').innerHTML=html;
+  refreshAiPrompt();
+}
+
+setTopAlert();
+updatePreview();
+renderDashboard();
+</script>
+</body>
+</html>
